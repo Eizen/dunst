@@ -7,7 +7,10 @@
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/Xresource.h>
-#ifdef XINERAMA
+#ifdef XRANDR
+#include <X11/extensions/Xrandr.h>
+#include <assert.h>
+#elif XINERAMA
 #include <X11/extensions/Xinerama.h>
 #include <assert.h>
 #endif
@@ -948,7 +951,71 @@ static Window get_focused_window(void)
         return focused;
 }
 
-#ifdef XINERAMA
+#ifdef XRANDR
+/*
+ * Select the screen on which the Window
+ * should be displayed.
+ */
+ static int select_screen(XRRCrtcInfo *crtc_info, int ncrtc)
+ {
+         int ret = 0;
+         x_follow_setup_error_handler();
+         if (settings.f_mode == FOLLOW_NONE) {
+                  ret = settings.monitor >=
+                     0 ? settings.monitor : XDefaultScreen(xctx.dpy);
+                  goto sc_cleanup;
+
+         } else {
+                 int x, y;
+                 assert(settings.f_mode == FOLLOW_MOUSE
+                        || settings.f_mode == FOLLOW_KEYBOARD);
+                 Window root =
+                     RootWindow(xctx.dpy, DefaultScreen(xctx.dpy));
+
+                 if (settings.f_mode == FOLLOW_MOUSE) {
+                         int dummy;
+                         unsigned int dummy_ui;
+                         Window dummy_win;
+
+                         XQueryPointer(xctx.dpy, root, &dummy_win,
+                                       &dummy_win, &x, &y, &dummy,
+                                       &dummy, &dummy_ui);
+                 }
+
+                 if (settings.f_mode == FOLLOW_KEYBOARD) {
+
+                         Window focused = get_focused_window();
+
+                         if (focused == 0) {
+                                 /* something went wrong. Fallback to default */
+                                 ret = settings.monitor >=
+                                     0 ? settings.monitor : XDefaultScreen(xctx.dpy);
+                                 goto sc_cleanup;
+                         }
+
+                         Window child_return;
+                         XTranslateCoordinates(xctx.dpy, focused, root,
+                                               0, 0, &x, &y, &child_return);
+                 }
+
+                for (int i = 0; i < ncrtc; i++) {
+                        if (INRECT(x, y, crtc_info[i].x, crtc_info[i].y,
+                                crtc_info[i].width, crtc_info[i].height)) {
+                                ret = i;
+                                goto sc_cleanup;
+                        }
+                 }
+
+                 /* something seems to be wrong. Fallback to default */
+                 ret = settings.monitor >=
+                     0 ? settings.monitor : XDefaultScreen(xctx.dpy);
+                 goto sc_cleanup;
+         }
+ sc_cleanup:
+         x_follow_tear_down_error_handler();
+         return ret;
+ }
+#elif XINERAMA
 /*
  * Select the screen on which the Window
  * should be displayed.
@@ -996,8 +1063,7 @@ static int select_screen(XineramaScreenInfo * info, int info_len)
                 }
 
                 for (int i = 0; i < info_len; i++) {
-                        if (INRECT(x, y, info[i].x_org,
-                                   info[i].y_org,
+                        if (INRECT(x, y, info[i].x_org, info[i].y_org,
                                    info[i].width, info[i].height)) {
                                 ret = i;
                                 goto sc_cleanup;
@@ -1021,7 +1087,42 @@ sc_cleanup:
  */
 static void x_screen_info(screen_info * scr)
 {
-#ifdef XINERAMA
+#ifdef XRANDR
+        int n;
+        //int num_randr_sizes;
+        XRRScreenResources *xrrsr;
+        XRRCrtcInfo *crtc_info;
+        XRROutputInfo *info;
+
+        xrrsr = XRRGetScreenResourcesCurrent(xctx.dpy, DefaultRootWindow(xctx.dpy));
+        n = XScreenCount(xctx.dpy);
+        fprintf(stderr, "%d\n", xrrsr->noutput);
+        fprintf(stderr, "%d\n", xrrsr->ncrtc);
+        for (int i = 0; i < n; i++) {
+                crtc_info = XRRGetCrtcInfo(xctx.dpy, xrrsr, xrrsr->crtcs[i]);
+        }
+
+        for (int i = 0; i < n; i++) {
+                info = XRRGetOutputInfo(xctx.dpy, xrrsr, xrrsr->outputs[i]);
+        }
+
+        int screen = select_screen(crtc_info, n);
+        if (screen >= n) {
+                /* invalid monitor, fallback to default */
+                screen = 0;
+        }
+
+        //XRRScreenSize *sizes = XRRSizes(xctx.dpy, screen, &num_randr_sizes);
+        scr->dim.x = crtc_info[screen].x;
+        scr->dim.y = crtc_info[screen].y;
+        scr->dim.w = crtc_info[screen].width;
+        scr->dim.h = crtc_info[screen].height;
+        scr->dim.mmh = info[screen].mm_height;
+
+        XRRFreeCrtcInfo(crtc_info);
+        XRRFreeOutputInfo(info);
+        XRRFreeScreenResources(xrrsr);
+#elif XINERAMA
         int n;
         XineramaScreenInfo *info;
         if ((info = XineramaQueryScreens(xctx.dpy, &n))) {
@@ -1049,6 +1150,7 @@ static void x_screen_info(screen_info * scr)
 
                 scr->dim.w = DisplayWidth(xctx.dpy, screen);
                 scr->dim.h = DisplayHeight(xctx.dpy, screen);
+                scr->dim.mmh = DisplayHeightMM(xctx.dpy, screen);
         }
 }
 
