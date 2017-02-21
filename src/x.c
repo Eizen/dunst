@@ -1099,7 +1099,7 @@ static void x_screen_info(screen_info * scr)
                 scr->dim.w = DisplayWidth(xctx.dpy, screen);
                 scr->dim.h = DisplayHeight(xctx.dpy, screen);
                 scr->dim.mmh = DisplayHeightMM(xctx.dpy, screen);
-                fprintf(stderr, "%d %d", DisplayHeightMM(xctx.dpy, screen), screen);
+                fprintf(stderr, "Width:%d Height:%d HeightMM:%d Screen:%d\n", DisplayWidth(xctx.dpy, screen), DisplayHeight(xctx.dpy, screen), DisplayHeightMM(xctx.dpy, screen), screen);
 }
 
 void x_free(void)
