@@ -1096,8 +1096,8 @@ static void x_screen_info(screen_info * scr)
 
         xrrsr = XRRGetScreenResourcesCurrent(xctx.dpy, DefaultRootWindow(xctx.dpy));
         n = XScreenCount(xctx.dpy);
-        fprintf(stderr, "%d\n", xrrsr->noutput);
-        fprintf(stderr, "%d\n", xrrsr->ncrtc);
+        fprintf(stderr, "Outputs %d\n", xrrsr->noutput);
+        fprintf(stderr, "crtc %d\n", xrrsr->ncrtc);
         for (int i = 0; i < n; i++) {
                 crtc_info = XRRGetCrtcInfo(xctx.dpy, xrrsr, xrrsr->crtcs[i]);
         }
@@ -1118,6 +1118,7 @@ static void x_screen_info(screen_info * scr)
         scr->dim.w = crtc_info[screen].width;
         scr->dim.h = crtc_info[screen].height;
         scr->dim.mmh = info[screen].mm_height;
+        fprintf(stderr, "Sizes %d %d %d\n", crtc_info[screen].width, crtc_info[screen].height, info[screen].mm_height);
 
         XRRFreeCrtcInfo(crtc_info);
         XRRFreeOutputInfo(info);
