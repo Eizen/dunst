@@ -1087,59 +1087,6 @@ sc_cleanup:
  */
 static void x_screen_info(screen_info * scr)
 {
-#ifdef XRANDR
-        int n;
-        //int num_randr_sizes;
-        XRRScreenResources *xrrsr;
-        XRRCrtcInfo *crtc_info;
-        XRROutputInfo *info;
-
-        xrrsr = XRRGetScreenResourcesCurrent(xctx.dpy, DefaultRootWindow(xctx.dpy));
-        n = XScreenCount(xctx.dpy);
-        fprintf(stderr, "Outputs %d\n", xrrsr->noutput);
-        fprintf(stderr, "crtc %d\n", xrrsr->ncrtc);
-        for (int i = 0; i < n; i++) {
-                crtc_info = XRRGetCrtcInfo(xctx.dpy, xrrsr, xrrsr->crtcs[i]);
-        }
-
-        for (int i = 0; i < n; i++) {
-                info = XRRGetOutputInfo(xctx.dpy, xrrsr, xrrsr->outputs[i]);
-        }
-
-        int screen = select_screen(crtc_info, n);
-        if (screen >= n) {
-                /* invalid monitor, fallback to default */
-                screen = 0;
-        }
-
-        //XRRScreenSize *sizes = XRRSizes(xctx.dpy, screen, &num_randr_sizes);
-        scr->dim.x = crtc_info[screen].x;
-        scr->dim.y = crtc_info[screen].y;
-        scr->dim.w = crtc_info[screen].width;
-        scr->dim.h = crtc_info[screen].height;
-        scr->dim.mmh = info[screen].mm_height;
-        fprintf(stderr, "Sizes %d %d %d\n", crtc_info[screen].width, crtc_info[screen].height, info[screen].mm_height);
-
-        XRRFreeCrtcInfo(crtc_info);
-        XRRFreeOutputInfo(info);
-        XRRFreeScreenResources(xrrsr);
-#elif XINERAMA
-        int n;
-        XineramaScreenInfo *info;
-        if ((info = XineramaQueryScreens(xctx.dpy, &n))) {
-                int screen = select_screen(info, n);
-                if (screen >= n) {
-                        /* invalid monitor, fallback to default */
-                        screen = 0;
-                }
-                scr->dim.x = info[screen].x_org;
-                scr->dim.y = info[screen].y_org;
-                scr->dim.h = info[screen].height;
-                scr->dim.w = info[screen].width;
-                XFree(info);
-        } else
-#endif
-        {
                 scr->dim.x = 0;
                 scr->dim.y = 0;
 
@@ -1152,7 +1099,7 @@ static void x_screen_info(screen_info * scr)
                 scr->dim.w = DisplayWidth(xctx.dpy, screen);
                 scr->dim.h = DisplayHeight(xctx.dpy, screen);
                 scr->dim.mmh = DisplayHeightMM(xctx.dpy, screen);
-        }
+                fprintf(stderr, "%d %d", DisplayHeightMM(xctx.dpy, screen), screen);
 }
 
 void x_free(void)
