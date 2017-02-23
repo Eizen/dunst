@@ -962,6 +962,36 @@ static void set_dpi_value(screen_info * scr, double dpi)
 }
 
 #ifdef XRANDR
+static int get_monitor_follow_mode(XRRMonitorInfo *info, int n, int x, int y)
+{
+        int ret = -1;
+        for (int i = 0; i < n; i++) {
+                if (INRECT(x, y, info[i].x, info[i].y,
+                        info[i].width, info[i].height)) {
+                        ret = i;
+                }
+        }
+
+        return ret;
+
+}
+#elif XINERAMA
+static int get_monitor_follow_mode(XineramaScreenInfo * info, int n, int x, int y)
+{
+        int ret = -1;
+        for (int i = 0; i < n; i++) {
+                if (INRECT(x, y, info[i].x_org, info[i].y_org,
+                        info[i].width, info[i].height)) {
+                        ret = i;
+                }
+        }
+
+        return ret;
+}
+#endif
+
+
+#ifdef XRANDR
 /*
  * Select the screen on which the Window
  * should be displayed.
@@ -1012,13 +1042,10 @@ static int select_screen(XineramaScreenInfo * info, int info_len)
                                                0, 0, &x, &y, &child_return);
                  }
 
-                for (int i = 0; i < n; i++) {
-                        if (INRECT(x, y, info[i].x, info[i].y,
-                                info[i].width, info[i].height)) {
-                                ret = i;
-                                goto sc_cleanup;
-                        }
-                 }
+                 ret = get_monitor_follow_mode(info, n, x, y);
+
+                 if (ret > 0)
+                        goto sc_cleanup;
 
                  /* something seems to be wrong. Fallback to default */
                  ret = settings.monitor >=
